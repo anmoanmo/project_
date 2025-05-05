@@ -1,0 +1,119 @@
+@startuml 日志系统
+' 基本设置
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam backgroundColor #ffffff
+
+' 枚举：日志等级
+enum LogLevel::Value {
+  OFF
+  DEBUG
+  INFO
+  WARN
+  ERROR
+  FATAL
+}
+
+' 日志消息结构体
+class LogMsg {
+  + std::string _time 时间
+  + std::string thread_id 线程ID
+  + std::string _file 文件
+  + int line 行号
+  + std::string logger_name 日志器名
+  + LogLevel::Value level 等级
+  + std::string payload 内容
+}
+
+' 接口类：LogSink
+class LogSink {
+  {abstract} + void log(LogMsg &msg)
+}
+
+' 派生类：不同类型的 Sink
+class FileSink
+class StdoutSink
+class RotFileSink
+
+FileSink -|> LogSink : 写入文件
+StdoutSink -|> LogSink : 写入标准输出
+RotFileSink -|> LogSink : 按大小或时间轮转写入
+
+' 格式项接口
+abstract class FormatItem {
+  {abstract} + void format(std::ostream &out, const LogMsg &msg)
+}
+
+' 派生格式项
+class ThreadFormatter
+class LevelFormatter
+class NameFormatter
+class TimeFormatter
+class MsgFormatter
+class FileFormatter
+class LineFormatter
+class TabFormatter
+class OtherFormatter
+class NLineFormatter
+
+ThreadFormatter -|> FormatItem
+LevelFormatter -|> FormatItem
+NameFormatter -|> FormatItem
+TimeFormatter -|> FormatItem
+MsgFormatter -|> FormatItem
+FileFormatter -|> FormatItem
+LineFormatter -|> FormatItem
+TabFormatter -|> FormatItem
+OtherFormatter -|> FormatItem
+NLineFormatter -|> FormatItem
+
+' 格式器类
+class Formatter {
+  - std::string _pattern 模式
+  - std::vector<FormatItem*> _format_order 格式顺序
+  + std::string format(const LogMsg &msg)
+}
+
+Formatter o-- FormatItem
+
+' 基类 Logger
+class Logger {
+  - std::string _name 名称
+  - std::atomic<LogLevel::Value> _level 日志等级
+  - std::list<LogSink*> _sinks 接收器列表
+  - Formatter _formatter 格式器
+  - std::mutex _mutex 锁
+  + void debug(...)
+  + void info(...)
+  + void warn(...)
+  + void error(...)
+  + void fatal(...)
+}
+
+Logger o-- LogSink
+Logger o-- Formatter
+Logger o-- LogMsg
+
+' 同步日志器
+class SyncLogger {
+}
+SyncLogger -|> Logger : 同步日志器
+
+' 异步任务处理类
+class AsyncLooper {
+  - std::mutex _mutex
+  - Buffer _task_push
+  - Buffer _task_pop
+  - std::thread _thread
+  + void push(task)
+  + void stop()
+}
+
+' 异步日志器
+class AsyncLogger {
+  - AsyncLooper _looper
+}
+AsyncLogger -|> Logger
+AsyncLogger o-- AsyncLooper
+
+@enduml
